@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Certificate Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>window.jsPDF = window.jspdf.jsPDF;</script>
+</head>
+<body class="bg-gray-100 min-h-screen p-6">
+  <h1 class="text-3xl font-bold text-center text-indigo-700 mb-6">Certificate Generator</h1>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- FORM SIDE -->
+    <div class="bg-white p-6 rounded shadow">
+      <div class="flex border-b mb-4">
+        <button id="contentTab" class="mr-4 pb-2 text-indigo-600 border-b-2 border-indigo-600 font-semibold" onclick="switchTab('content')">Content</button>
+        <button id="designTab" class="pb-2 text-gray-600" onclick="switchTab('design')">Design</button>
+      </div>
+
+      <form class="space-y-4">
+        <!-- CONTENT TAB -->
+        <div id="contentSection">
+          <label class="block text-sm font-medium">Upload Logo (Optional)</label>
+          <input type="file" id="logoInput" accept="image/*" class="w-full border p-2 rounded" />
+
+          <label class="block text-sm font-medium">Heading 1</label>
+          <input type="text" id="heading1" class="w-full border p-2 rounded" required placeholder="Company / School Name" />
+
+          <label class="block text-sm font-medium">Heading 2</label>
+          <input type="text" id="heading2" class="w-full border p-2 rounded" placeholder="Optional subheading" />
+
+          <label class="block text-sm font-medium">Certificate Type</label>
+          <input type="text" id="body" class="w-full border p-2 rounded" placeholder="Certificate of Participation" />
+
+          <label class="block text-sm font-medium">Recipient Name</label>
+          <input type="text" id="recipientName" class="w-full border p-2 rounded" placeholder="John Doe" />
+
+          <label class="block text-sm font-medium">Description</label>
+          <textarea id="description" rows="3" class="w-full border p-2 rounded" placeholder="Details about the event, date, etc."></textarea>
+
+          <label class="block text-sm font-medium mt-4">Signatories</label>
+          <div id="signatoriesContainer" class="space-y-4">
+            <div class="signatory border p-3 rounded-md bg-gray-50">
+              <input type="text" placeholder="Name" class="border p-2 rounded w-full mb-2" />
+              <input type="text" placeholder="Position" class="border p-2 rounded w-full mb-2" />
+              <input type="file" accept="image/*" class="border p-2 rounded w-full" />
+            </div>
+          </div>
+          <button type="button" onclick="addSignatory()" class="mt-2 text-indigo-600 font-medium">+ Add Signatory</button>
+        </div>
+
+        <!-- DESIGN TAB -->
+        <div id="designSection" class="hidden">
+          <div class="grid grid-cols-2 gap-4 pt-4">
+            <div>
+              <label class="block text-sm font-medium">Primary Color</label>
+              <input type="color" id="primaryColor" class="w-full h-10">
+            </div>
+            <div>
+              <label class="block text-sm font-medium">Secondary Color</label>
+              <input type="color" id="secondaryColor" class="w-full h-10">
+            </div>
+            <div class="col-span-2">
+              <label class="text-sm font-medium">Enable Gradient</label>
+              <input type="checkbox" id="enableGradient" class="ml-2">
+            </div>
+            <div class="col-span-2">
+              <label class="block text-sm font-medium">Gradient Direction</label>
+              <select id="gradientDirection" class="w-full border p-2 rounded">
+                <option value="to right">Left to Right</option>
+                <option value="to left">Right to Left</option>
+                <option value="to bottom">Top to Bottom</option>
+                <option value="to top">Bottom to Top</option>
+                <option value="45deg">Diagonal ↘</option>
+                <option value="135deg">Diagonal ↙</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="mt-6 space-y-4">
+            <button type="button" onclick="autoPickColors()" class="bg-purple-500 text-white px-4 py-2 rounded">Auto-Pick Colors from Logo</button>
+            <button type="button" onclick="generatePreview()" class="bg-indigo-500 text-white px-4 py-2 rounded">Apply Gradient Direction</button>
+            <div>
+              <label class="block text-sm font-medium">Choose Theme</label>
+              <select id="themeSelector" onchange="generatePreview()" class="w-full border p-2 rounded">
+                <option value="default">Default</option>
+                <option value="academic">Academic</option>
+                <option value="corporate">Corporate</option>
+                <option value="creative">Creative</option>
+                <option value="sports">Sports</option>
+              </select>
+            </div>
+            <button type="button" onclick="saveTemplate()" class="bg-green-600 text-white px-4 py-2 rounded">💾 Save Template</button>
+            <button type="button" onclick="loadTemplate()" class="bg-blue-600 text-white px-4 py-2 rounded">📂 Load Template</button>
+          </div>
+        </div>
+
+        <div class="pt-4">
+          <button type="button" onclick="generatePreview()" class="w-full bg-indigo-600 text-white px-4 py-2 rounded">Generate Certificate</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- PREVIEW SIDE -->
+    <div class="bg-white p-6 rounded shadow">
+      <h2 class="text-lg font-semibold mb-4">Certificate Preview</h2>
+      <div id="previewArea" class="w-full h-[600px] bg-gray-100 flex items-center justify-center overflow-auto"></div>
+    </div>
+  </div>
+
+  <script>
+    function switchTab(tab) {
+      document.getElementById('contentSection').classList.toggle('hidden', tab !== 'content');
+      document.getElementById('designSection').classList.toggle('hidden', tab !== 'design');
+      document.getElementById('contentTab').classList.toggle('text-indigo-600', tab === 'content');
+      document.getElementById('designTab').classList.toggle('text-indigo-600', tab === 'design');
+    }
+
+    function addSignatory() {
+      const container = document.getElementById('signatoriesContainer');
+      const div = document.createElement('div');
+      div.className = 'signatory border p-3 rounded-md bg-gray-50';
+      div.innerHTML = `
+        <input type="text" placeholder="Name" class="border p-2 rounded w-full mb-2" />
+        <input type="text" placeholder="Position" class="border p-2 rounded w-full mb-2" />
+        <input type="file" accept="image/*" class="border p-2 rounded w-full" />
+      `;
+      container.appendChild(div);
+    }
+
+    function autoPickColors() {
+      const logoInput = document.getElementById('logoInput');
+      if (!logoInput.files.length) {
+        alert('Please upload a logo first.');
+        return;
+      }
+      const img = new Image();
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        img.src = e.target.result;
+        img.onload = function () {
+          const canvas = document.createElement('canvas');
+          canvas.width = 1;
+          canvas.height = 1;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, 1, 1);
+          const pixel = ctx.getImageData(0, 0, 1, 1).data;
+          const hex = `#${((1 << 24) + (pixel[0] << 16) + (pixel[1] << 8) + pixel[2]).toString(16).slice(1)}`;
+          document.getElementById('primaryColor').value = hex;
+          document.getElementById('secondaryColor').value = hex;
+        };
+      };
+      reader.readAsDataURL(logoInput.files[0]);
+    }
+
+    function saveTemplate() {
+      const template = {
+        heading1: document.getElementById('heading1').value,
+        heading2: document.getElementById('heading2').value,
+        body: document.getElementById('body').value,
+        recipientName: document.getElementById('recipientName').value,
+        description: document.getElementById('description').value,
+        primaryColor: document.getElementById('primaryColor').value,
+        secondaryColor: document.getElementById('secondaryColor').value,
+        enableGradient: document.getElementById('enableGradient').checked,
+        gradientDirection: document.getElementById('gradientDirection').value,
+        theme: document.getElementById('themeSelector').value
+      };
+      localStorage.setItem('certificateTemplate', JSON.stringify(template));
+      alert('Template saved!');
+    }
+
+    function loadTemplate() {
+      const template = JSON.parse(localStorage.getItem('certificateTemplate'));
+      if (!template) return alert('No saved template found.');
+      document.getElementById('heading1').value = template.heading1;
+      document.getElementById('heading2').value = template.heading2;
+      document.getElementById('body').value = template.body;
+      document.getElementById('recipientName').value = template.recipientName;
+      document.getElementById('description').value = template.description;
+      document.getElementById('primaryColor').value = template.primaryColor;
+      document.getElementById('secondaryColor').value = template.secondaryColor;
+      document.getElementById('enableGradient').checked = template.enableGradient;
+      document.getElementById('gradientDirection').value = template.gradientDirection;
+      document.getElementById('themeSelector').value = template.theme;
+      generatePreview();
+    }
+
+    function getThemeStyles(theme) {
+      switch (theme) {
+        case 'academic': return 'font-serif text-black border-double';
+        case 'corporate': return 'font-sans text-gray-900 tracking-wide';
+        case 'creative': return 'font-mono text-purple-700 italic';
+        case 'sports': return 'font-bold uppercase text-red-700';
+        default: return 'font-sans';
+      }
+    }
+
+    function generatePreview() {
+      const preview = document.getElementById('previewArea');
+      const heading1 = document.getElementById('heading1').value;
+      const heading2 = document.getElementById('heading2').value;
+      const body = document.getElementById('body').value;
+      const name = document.getElementById('recipientName').value;
+      const description = document.getElementById('description').value;
+      const primary = document.getElementById('primaryColor').value;
+      const secondary = document.getElementById('secondaryColor').value;
+      const gradient = document.getElementById('enableGradient').checked;
+      const direction = document.getElementById('gradientDirection').value;
+      const theme = document.getElementById('themeSelector').value;
+
+      const bg = gradient ? `linear-gradient(${direction}, ${primary}, ${secondary})` : primary;
+      const themeStyles = getThemeStyles(theme);
+
+      const certificate = document.createElement('div');
+      certificate.className = `w-full h-full flex flex-col justify-center items-center text-center p-12 border-4 rounded ${themeStyles}`;
+      certificate.style.borderColor = primary;
+      certificate.style.background = bg;
+
+      certificate.innerHTML = `
+        <h1 class="text-2xl font-bold" style="color:${primary}">${heading1}</h1>
+        <h2 class="text-lg mt-1">${heading2}</h2>
+        <p class="text-xl mt-4">${body}</p>
+        <h3 class="text-3xl font-bold mt-6">${name}</h3>
+        <p class="text-md mt-2">${description}</p>
+        <div id="signatoryPreview" class="flex justify-center flex-wrap gap-16 mt-12"></div>
+      `;
+
+      const signatories = document.querySelectorAll('#signatoriesContainer .signatory');
+      const previewSignatory = certificate.querySelector('#signatoryPreview');
+
+      signatories.forEach(signatory => {
+        const inputs = signatory.querySelectorAll('input');
+        const sigName = inputs[0].value;
+        const sigPos = inputs[1].value;
+        const sigFile = inputs[2].files[0];
+
+        const sigDiv = document.createElement('div');
+        sigDiv.className = 'text-center';
+        if (sigFile) {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            const img = document.createElement('img');
+            img.src = e.target.result;
+            img.style.height = '60px';
+            img.className = 'mx-auto mb-2';
+            sigDiv.appendChild(img);
+            sigDiv.innerHTML += `<p class='font-bold'>${sigName}</p><p class='text-sm'>${sigPos}</p>`;
+            previewSignatory.appendChild(sigDiv);
+          };
+          reader.readAsDataURL(sigFile);
+        } else {
+          sigDiv.innerHTML = `<hr class='w-32 mx-auto mb-2'><p class='font-bold'>${sigName}</p><p class='text-sm'>${sigPos}</p>`;
+          previewSignatory.appendChild(sigDiv);
+        }
+      });
+
+      preview.innerHTML = '';
+      preview.appendChild(certificate);
+    }
+  </script>
+</body>
+</html>
